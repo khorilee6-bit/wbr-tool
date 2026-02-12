@@ -24,7 +24,7 @@ if "APP_PASSWORD" not in st.secrets:
     st.sidebar.error("⚠️ Password not set in Secrets. Please add APP_PASSWORD to secrets.toml")
     st.stop()
 
-password = st.sidebar.text_input("Enter App Password", type="password")
+password = st.sidebar.text_input("Enter Password", type="password")
 if not password:
     st.sidebar.info("Please enter the password to proceed.")
     st.stop()
