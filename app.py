@@ -19,23 +19,23 @@ import ast # Required for robust parsing of single-quoted AI data
 st.set_page_config(page_title="WBR Tool", page_icon="🚀", layout="wide")
 st.title("🚀 Strategic Performance Dashboard")
 
-# --- 🔒 1. PASSWORD PROTECTION ---
+# --- 🔒 1. PASSWORD PROTECTION (MOVED TO SIDEBAR) ---
 if "APP_PASSWORD" not in st.secrets:
-    st.error("⚠️ Password not set in Secrets. Please add APP_PASSWORD to secrets.toml")
+    st.sidebar.error("⚠️ Password not set in Secrets. Please add APP_PASSWORD to secrets.toml")
     st.stop()
 
-password = st.text_input("Enter App Password", type="password")
+password = st.sidebar.text_input("Enter App Password", type="password")
 if not password:
-    st.info("Please enter the password to proceed.")
+    st.sidebar.info("Please enter the password to proceed.")
     st.stop()
 if password != st.secrets["APP_PASSWORD"]:
-    st.error("❌ Incorrect password.")
+    st.sidebar.error("❌ Incorrect password.")
     st.stop()
 
-# --- 🔗 2. URL INPUT ---
-sheet_url = st.text_input("Enter Google Sheet URL", placeholder="https://docs.google.com/spreadsheets/d/...")
+# --- 🔗 2. URL INPUT (MOVED TO SIDEBAR) ---
+sheet_url = st.sidebar.text_input("Enter Google Sheet URL", placeholder="https://docs.google.com/spreadsheets/d/...")
 if not sheet_url:
-    st.warning("Please paste the Google Sheet URL to connect.")
+    st.sidebar.warning("Please paste the Google Sheet URL to connect.")
     st.stop()
 
 st.markdown("---")
