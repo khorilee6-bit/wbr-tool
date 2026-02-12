@@ -33,7 +33,7 @@ if password != st.secrets["APP_PASSWORD"]:
     st.stop()
 
 # --- 🔗 2. URL INPUT (MOVED TO SIDEBAR) ---
-sheet_url = st.sidebar.text_input("Enter Google Sheet URL", placeholder="https://docs.google.com/spreadsheets/d/...")
+sheet_url = st.sidebar.text_input("Google Sheet URL", placeholder="Paste Link Here...")
 if not sheet_url:
     st.sidebar.warning("Please paste the Google Sheet URL to connect.")
     st.stop()
