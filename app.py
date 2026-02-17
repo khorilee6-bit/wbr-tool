@@ -139,19 +139,19 @@ if st.button("🔄 Analyze Data"):
             df = pd.DataFrame(rows[1:], columns=rows[0])
             
             # --- DATA CLEANING ---
-            # IMPORTANT: Strip spaces from headers to ensure 'Team' is found
             df.columns = df.columns.str.strip()
+            
+            # Identify the Notes column (Prioritize 'AI_Notes_Context')
+            notes_col = 'AI_Notes_Context' if 'AI_Notes_Context' in df.columns else 'Notes'
             
             df['IQA_Score'] = df['IQA_Score'].apply(clean_num)
             df['Show_Rate'] = df['Show_Rate'].apply(clean_num)
             df['AHT'] = df['AHT'].apply(clean_num)
             df['Agent_Name'] = df['Agent_Name'].astype(str).str.strip()
             
-            # Strip spaces from Team names so "CID " matches "CID"
             if 'Team' in df.columns:
                 df['Team'] = df['Team'].astype(str).str.strip()
             
-            # Normalize Percentages
             if df['IQA_Score'].mean() > 1.5: df['IQA_Score'] /= 100
             if df['Show_Rate'].mean() > 1.5: df['Show_Rate'] /= 100
             
@@ -179,7 +179,7 @@ if st.button("🔄 Analyze Data"):
                         'Full_Name': agent, 'First_Name': get_first_name(agent),
                         'Trend': [w3['IQA_Score'], w2['IQA_Score'], w1['IQA_Score']],
                         'Current_IQA': w1['IQA_Score'], 'Current_SR': w1['Show_Rate'],
-                        'Current_AHT': w1['AHT'], 'Notes': w1.get('Notes', '')
+                        'Current_AHT': w1['AHT'], 'Notes': w1.get(notes_col, '')
                     }
 
                 # --- DIAGNOSTIC INSIGHT LOGIC ---
@@ -204,7 +204,7 @@ if st.button("🔄 Analyze Data"):
                         'Reason': ", ".join(issues),
                         'Trend': [w3['IQA_Score'], w2['IQA_Score'], w1['IQA_Score']],
                         'Current_IQA': w1['IQA_Score'], 'Current_SR': w1['Show_Rate'],
-                        'Current_AHT': w1['AHT'], 'Notes': w1.get('Notes', '')
+                        'Current_AHT': w1['AHT'], 'Notes': w1.get(notes_col, '')
                     })
             
             st.session_state['candidates'] = sorted(candidates, key=lambda x: x['Current_IQA'])
@@ -251,35 +251,25 @@ if 'candidates' in st.session_state:
             replace_text_colored(prs.slides[0], {"{{DATE_TODAY}}": (datetime.date.today().strftime("%B %d, %Y"), None)})
             
             # --- 1. IDENTIFY TEAMS & PREPARE SLIDES ---
-            # We process the "Overall" slide (Index 1) and create new ones for each team.
             original_dash_slide = prs.slides[1]
-            
-            # Get unique teams, filtering out garbage data
             if 'Team' in df.columns:
                 unique_teams = [t for t in df['Team'].unique() if t and str(t).lower() not in ['nan', 'none', '']]
             else:
                 unique_teams = []
             
             dashboards_to_process = []
-            
-            # Add Overall Context
             dashboards_to_process.append({
                 'name': 'OVERALL', 
                 'df': df, 
                 'slide': original_dash_slide
             })
             
-            # Create & Add Team Contexts
             for team in unique_teams:
                 team_df = df[df['Team'] == team]
-                
-                # Duplicate the Overall Slide layout
                 new_slide = prs.slides.add_slide(original_dash_slide.slide_layout)
-                
-                # Robust Shape Copy (using append instead of insert_before to handle blank slides)
                 for shape in original_dash_slide.shapes:
                     new_el = copy.deepcopy(shape.element)
-                    new_slide.shapes._spTree.append(new_el) # Force append
+                    new_slide.shapes._spTree.append(new_el)
                 
                 dashboards_to_process.append({
                     'name': team.upper(),
@@ -325,25 +315,21 @@ if 'candidates' in st.session_state:
                     "WEEKLY PERFORMANCE REVIEW": (title_text, None)
                 })
 
-                # Chart Logic
                 for shape in current_slide.shapes:
                     if shape.has_text_frame and "{{CHART_PLACEHOLDER}}" in shape.text:
                         left, top, w, h = shape.left, shape.top, shape.width, shape.height
                         shape._element.getparent().remove(shape._element) 
-                        
                         weeks = current_df['Week_ID'].unique()[-8:]
                         cdata = CategoryChartData()
                         cdata.categories = weeks
                         cdata.add_series('IQA Avg', [current_df[current_df['Week_ID'] == wk]['IQA_Score'].mean() for wk in weeks])
                         cdata.add_series('Show Rate', [current_df[current_df['Week_ID'] == wk]['Show_Rate'].mean() for wk in weeks])
                         cdata.add_series('AHT Goal %', [(current_df[current_df['Week_ID'] == wk]['AHT'] <= AHT_GOAL_SEC).mean() for wk in weeks])
-                        
                         chart = current_slide.shapes.add_chart(XL_CHART_TYPE.LINE, left, top, w, h, cdata).chart
                         chart.has_legend, chart.legend.position, chart.legend.font.size = True, XL_LEGEND_POSITION.BOTTOM, Pt(10)
                         chart.value_axis.maximum_scale = 1.0
 
-            # --- SLIDE 3 (WATCHLIST) & DEEP DIVES ---
-            # Re-locate the watchlist slide by looking for the table
+            # --- SLIDE 3 (WATCHLIST) ---
             watchlist_slide = None
             for s in prs.slides:
                 if any(sh.has_table for sh in s.shapes):
@@ -356,18 +342,15 @@ if 'candidates' in st.session_state:
                     for i, item in enumerate(final_watchlist):
                         if i+1 >= len(table.rows): break
                         row = table.rows[i+1]
-                        
                         metric_category = "General"
                         if "Quality" in item['Reason']: metric_category = "Quality"
                         elif "AHT" in item['Reason']: metric_category = "Efficiency"
                         elif "Reliability" in item['Reason']: metric_category = "Reliability"
-                        
                         row.cells[0].text, row.cells[1].text = item['Full_Name'], metric_category
                         row.cells[2].text, row.cells[3].text = f"{item['Trend'][0]:.0%}", f"{item['Current_IQA']:.0%} {get_trend_arrow(item['Current_IQA'], item['Trend'][1])}"
                         row.cells[4].text, row.cells[5].text, row.cells[6].text = f"{(item['Current_IQA'] - item['Trend'][0]):.1%}", "90%", item['Reason']
 
-            # Find Template Slide (It is the last slide before the appended team slides, or we scan for placeholders)
-            # Strategy: Look for the slide with {{AGENT_NAME}}
+            # --- DEEP DIVES ---
             template_slide = None
             template_idx = -1
             for idx, s in enumerate(prs.slides):
@@ -378,15 +361,22 @@ if 'candidates' in st.session_state:
                         break
                 if template_slide: break
             
-            TMP_IDX = template_idx if template_slide else 3 # Fallback
+            TMP_IDX = template_idx if template_slide else 3
 
             def get_ai_analysis(mode, item):
                 history = get_agent_history(item['Full_Name'])
                 h_ctx = f"PREV: {history['focus']} | Plan: {history['plan']}" if history else "Baseline."
+                
+                # --- UPDATED PROMPT WITH NOTES ---
                 if mode == "COACH":
-                    prompt = (f"Expert Performance Coach. AGENT: {item['First_Name']} Data: IQA {item['Current_IQA']:.1%}, AHT {sec_to_min(item['Current_AHT'])}. Standard: 13m goal. {h_ctx}. JSON keys MUST be 'analysis' (Max 50 words) and 'plan' (3-4 bullets). No asterisks.")
+                    prompt = (f"Expert Performance Coach. AGENT: {item['First_Name']} "
+                              f"Data: IQA {item['Current_IQA']:.1%}, AHT {sec_to_min(item['Current_AHT'])}. "
+                              f"Context/Notes: {item['Notes']}. " # <--- AI NOW SEES THE NOTES
+                              f"Standard: 13m goal. {h_ctx}. JSON keys MUST be 'analysis' (Max 50 words) and 'plan' (3-4 bullets). No asterisks.")
                 else:
-                    prompt = (f"Celebrate Performer {item['First_Name']} (IQA {item['Current_IQA']:.1%}). TASK: 1. Winning Analysis (Max 50 words). 2. Growth Plan (3 bullets). JSON FORMAT ONLY: {{'analysis': '...', 'plan': '...'}}. No other keys.")
+                    prompt = (f"Celebrate Performer {item['First_Name']} (IQA {item['Current_IQA']:.1%}). "
+                              f"Context/Notes: {item['Notes']}. " # <--- AI NOW SEES THE NOTES
+                              f"TASK: 1. Winning Analysis (Max 50 words). 2. Growth Plan (3 bullets). JSON FORMAT ONLY: {{'analysis': '...', 'plan': '...'}}. No other keys.")
                 try:
                     res = model.generate_content(prompt)
                     json_match = re.search(r'\{.*\}', res.text, re.DOTALL)
@@ -403,7 +393,6 @@ if 'candidates' in st.session_state:
             for item in final_watchlist:
                 res = get_ai_analysis("COACH", item)
                 sl = prs.slides.add_slide(prs.slide_layouts[6])
-                # Robust copy for agent slides
                 if template_slide:
                     for s in template_slide.shapes:
                         sl.shapes._spTree.append(copy.deepcopy(s.element))
@@ -418,7 +407,6 @@ if 'candidates' in st.session_state:
                         sl.shapes._spTree.append(copy.deepcopy(sh.element))
                 replace_text_colored(sl, {"{{AGENT_NAME}}": (f"⭐ {star['Full_Name']} ⭐", RGBColor(0,128,0)), "{{SCORE}}": (f"{star['Current_IQA']:.0%}", RGBColor(0,128,0)), "{{AI_ANALYSIS_TEXT}}": (res['analysis'], None), "{{AI_ACTION_PLAN}}": (res['plan'], None)})
 
-            # Cleanup Template Slide
             if template_slide:
                 xml_slides = prs.slides._sldIdLst
                 xml_slides.remove(list(xml_slides)[template_idx])
