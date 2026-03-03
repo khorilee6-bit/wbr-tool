@@ -125,12 +125,11 @@ def get_agent_history(agent_name):
 
 def save_agent_history(agent_name, focus, plan):
     try:
+        # CHANGED: Added this line to actually connect to the worksheet
         ws = sh.worksheet(HISTORY_TAB_NAME)
         today = datetime.date.today().strftime("%Y-%m-%d")
-        # CHANGED: Added value_input_option to force sheet to accept the row
         ws.append_row([today, agent_name, str(focus), str(plan)], value_input_option='USER_ENTERED')
     except Exception as e: 
-        # CHANGED: Show an error in the app if saving fails, instead of failing silently
         st.error(f"❌ Failed to save history for {agent_name}: {e}")
 
 # --- STEP 1: LOAD DATA ---
@@ -381,7 +380,6 @@ if 'candidates' in st.session_state:
 
             def get_ai_analysis(mode, item):
                 history = get_agent_history(item['Full_Name'])
-                # CHANGED: Explicitly ask the AI to evaluate if they improved based on the plan
                 h_ctx = f"PREV Wk Focus: {history['focus']} | PREV Wk Plan: {history['plan']}. Did they improve?" if history else "Baseline."
                 
                 if mode == "COACH":
