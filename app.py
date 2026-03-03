@@ -127,9 +127,11 @@ def save_agent_history(agent_name, focus, plan):
     try:
         ws = sh.worksheet(HISTORY_TAB_NAME)
         today = datetime.date.today().strftime("%Y-%m-%d")
-        ws.append_row([today, agent_name, str(focus), str(plan)])
+        # CHANGED: Added value_input_option to force sheet to accept the row
+        ws.append_row([today, agent_name, str(focus), str(plan)], value_input_option='USER_ENTERED')
     except Exception as e: 
-        print(f"Error saving history: {e}") # Changed to print error instead of silent pass
+        # CHANGED: Show an error in the app if saving fails, instead of failing silently
+        st.error(f"❌ Failed to save history for {agent_name}: {e}")
 
 # --- STEP 1: LOAD DATA ---
 if st.button("🔄 Analyze Data"):
@@ -166,7 +168,7 @@ if st.button("🔄 Analyze Data"):
             df['Sort_Key'] = df['Week_ID'].apply(get_sort_key)
             
             candidates = []
-            top_performers = [] # CHANGED to array to collect all top scorers
+            top_performers = [] 
             agents = df['Agent_Name'].unique()
             
             for agent in agents:
@@ -174,12 +176,10 @@ if st.button("🔄 Analyze Data"):
                 if len(adf) < 3: continue
                 w3, w2, w1 = adf.iloc[-3], adf.iloc[-2], adf.iloc[-1]
                 
-                # CHANGED: Capture multi-week notes to establish behavior trends
                 notes_history = f"Wk-2: {w3.get(notes_col, 'None')} | Wk-1: {w2.get(notes_col, 'None')} | Curr: {w1.get(notes_col, 'None')}"
                 
                 comp = (w1['IQA_Score'] * 0.7) + (w1['Show_Rate'] * 0.3)
                 
-                # CHANGED: Collect all agents meeting Star Criteria for dropdown selection
                 if w1['IQA_Score'] >= 0.95:
                     top_performers.append({
                         'Full_Name': agent, 'First_Name': get_first_name(agent),
@@ -211,7 +211,7 @@ if st.button("🔄 Analyze Data"):
                         'Reason': ", ".join(issues),
                         'Trend': [w3['IQA_Score'], w2['IQA_Score'], w1['IQA_Score']],
                         'Current_IQA': w1['IQA_Score'], 'Current_SR': w1['Show_Rate'],
-                        'Current_AHT': w1['AHT'], 'Notes': notes_history # CHANGED to pass multi-week notes
+                        'Current_AHT': w1['AHT'], 'Notes': notes_history 
                     })
             
             st.session_state['candidates'] = sorted(candidates, key=lambda x: x['Current_IQA'])
@@ -238,12 +238,10 @@ if 'candidates' in st.session_state:
     
     final_watchlist = [c for c in st.session_state['candidates'] if c['Full_Name'] in selection]
     
-    # CHANGED: Dropdown Selection for Top Performer
     st.write("---")
     if 'top_performers' in st.session_state and st.session_state['top_performers']:
         star_names = [p['Full_Name'] for p in st.session_state['top_performers']]
         selected_star = st.selectbox("🌟 Select the Top Performer of the Week:", star_names)
-        # Assign the selected agent to st.session_state['star'] for PowerPoint generation
         st.session_state['star'] = next((p for p in st.session_state['top_performers'] if p['Full_Name'] == selected_star), None)
     else:
         st.session_state['star'] = None
@@ -383,9 +381,9 @@ if 'candidates' in st.session_state:
 
             def get_ai_analysis(mode, item):
                 history = get_agent_history(item['Full_Name'])
-                h_ctx = f"PREV: {history['focus']} | Plan: {history['plan']}" if history else "Baseline."
+                # CHANGED: Explicitly ask the AI to evaluate if they improved based on the plan
+                h_ctx = f"PREV Wk Focus: {history['focus']} | PREV Wk Plan: {history['plan']}. Did they improve?" if history else "Baseline."
                 
-                # --- UPDATED PROMPTS FOR BETTER TREND/BEHAVIORAL ACCURACY ---
                 if mode == "COACH":
                     prompt = (f"Expert Performance Coach. AGENT: {item['First_Name']} "
                               f"Data: IQA {item['Current_IQA']:.1%}, AHT {sec_to_min(item['Current_AHT'])}. "
