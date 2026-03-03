@@ -347,7 +347,7 @@ if 'candidates' in st.session_state:
             # --- SLIDE 3 (WATCHLIST) ---
             watchlist_slide = None
             for s in prs.slides:
-                if any(sh.has_table for sh in s.shapes):
+                if any(shp.has_table for shp in s.shapes): # FIX: Changed sh to shp
                     watchlist_slide = s
                     break
             
@@ -369,8 +369,8 @@ if 'candidates' in st.session_state:
             template_slide = None
             template_idx = -1
             for idx, s in enumerate(prs.slides):
-                for sh in s.shapes:
-                    if sh.has_text_frame and "{{AGENT_NAME}}" in sh.text:
+                for shp in s.shapes: # FIX: Changed sh to shp
+                    if shp.has_text_frame and "{{AGENT_NAME}}" in shp.text:
                         template_slide = s
                         template_idx = idx
                         break
@@ -409,8 +409,8 @@ if 'candidates' in st.session_state:
                 res = get_ai_analysis("COACH", item)
                 sl = prs.slides.add_slide(prs.slide_layouts[6])
                 if template_slide:
-                    for s in template_slide.shapes:
-                        sl.shapes._spTree.append(copy.deepcopy(s.element))
+                    for shp in template_slide.shapes: # FIX: Changed sh to shp
+                        sl.shapes._spTree.append(copy.deepcopy(shp.element))
                 replace_text_colored(sl, {"{{AGENT_NAME}}": (item['Full_Name'], None), "{{SCORE}}": (f"{item['Current_IQA']:.0%} {get_trend_arrow(item['Current_IQA'], item['Trend'][1])}", get_color_for_score(item['Current_IQA'])), "{{AI_ANALYSIS_TEXT}}": (res['analysis'], None), "{{AI_ACTION_PLAN}}": (res['plan'], None)})
 
             if st.session_state['star']:
@@ -418,8 +418,8 @@ if 'candidates' in st.session_state:
                 res = get_ai_analysis("STAR", star)
                 sl = prs.slides.add_slide(prs.slide_layouts[6])
                 if template_slide:
-                    for sh in template_slide.shapes:
-                        sl.shapes._spTree.append(copy.deepcopy(sh.element))
+                    for shp in template_slide.shapes: # FIX: Changed sh to shp
+                        sl.shapes._spTree.append(copy.deepcopy(shp.element))
                 replace_text_colored(sl, {"{{AGENT_NAME}}": (f"⭐ {star['Full_Name']} ⭐", RGBColor(0,128,0)), "{{SCORE}}": (f"{star['Current_IQA']:.0%}", RGBColor(0,128,0)), "{{AI_ANALYSIS_TEXT}}": (res['analysis'], None), "{{AI_ACTION_PLAN}}": (res['plan'], None)})
 
             if template_slide:
