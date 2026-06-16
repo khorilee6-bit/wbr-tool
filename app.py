@@ -125,7 +125,6 @@ def get_agent_history(agent_name):
 
 def save_agent_history(agent_name, focus, plan):
     try:
-        # CHANGED: Added this line to actually connect to the worksheet
         ws = sh.worksheet(HISTORY_TAB_NAME)
         today = datetime.date.today().strftime("%Y-%m-%d")
         ws.append_row([today, agent_name, str(focus), str(plan)], value_input_option='USER_ENTERED')
@@ -383,15 +382,22 @@ if 'candidates' in st.session_state:
                 h_ctx = f"PREV Wk Focus: {history['focus']} | PREV Wk Plan: {history['plan']}. Did they improve?" if history else "Baseline."
                 
                 if mode == "COACH":
-                    prompt = (f"Expert Performance Coach. AGENT: {item['First_Name']} "
+                    prompt = (f"You are an expert, supportive Performance Coach. AGENT: {item['First_Name']} "
                               f"Data: IQA {item['Current_IQA']:.1%}, AHT {sec_to_min(item['Current_AHT'])}. "
                               f"Score Trend: {item['Trend'][0]:.0%} -> {item['Trend'][1]:.0%} -> {item['Trend'][2]:.0%}. "
-                              f"3-Week Context/Notes: {item['Notes']}. " 
-                              f"Standard: 13m goal. {h_ctx}. Identify specific behavioral trends from notes and explicitly state if performance is improving/declining. JSON keys MUST be 'analysis' (Max 50 words) and 'plan' (3-4 bullets). No asterisks.")
+                              f"Source Sheet Notes: {item['Notes']}. " 
+                              f"Standard: 13m goal. {h_ctx}. "
+                              f"TASK instructions for JSON output:\n"
+                              f"1. 'analysis': Keep it hyper-concise (MAX 45 words). You MUST start the sentence by explicitly stating the primary problem or operational gap the agent is having based on the Source Sheet Notes, lightly summarized. Conclude by stating if their metric trend is improving or declining.\n"
+                              f"2. 'plan': Provide exactly 3 short, ground-level tactical coaching bullets. Do NOT jump to extreme or final disciplinary actions. Keep actions incremental, supportive, and practical for a supervisor to execute this week.\n"
+                              f"JSON keys MUST be exactly 'analysis' and 'plan'. Do not use any asterisks or formatting markdown.")
                 else:
                     prompt = (f"Celebrate Performer {item['First_Name']} (IQA {item['Current_IQA']:.1%}). "
                               f"3-Week Context/Notes: {item['Notes']}. " 
-                              f"TASK: 1. Winning Analysis (Max 50 words detailing exactly WHAT behaviors/actions they are doing well based on the notes). 2. Growth Plan (3 bullets). JSON FORMAT ONLY: {{'analysis': '...', 'plan': '...'}}. No other keys.")
+                              f"TASK instructions for JSON output:\n"
+                              f"1. 'analysis': Hyper-concise praise (MAX 45 words) detailing exactly WHAT positive behaviors they are doing well based on the source sheet notes.\n"
+                              f"2. 'plan': 3 short bullet points focused on growth, continuous consistency, or peer mentoring.\n"
+                              f"JSON keys MUST be exactly 'analysis' and 'plan'. Do not use any asterisks or formatting markdown.")
                 try:
                     res = model.generate_content(prompt)
                     json_match = re.search(r'\{.*\}', res.text, re.DOTALL)
